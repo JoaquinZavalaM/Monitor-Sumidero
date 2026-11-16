@@ -49,6 +49,17 @@ async function crearTabla() {
 // Si el header x-api-key no coincide con API_KEY, se rechaza con 401
 function revisarClave(req, res, next) {
   if (req.get("x-api-key") !== process.env.API_KEY) {
+    // DIAGNOSTICO TEMPORAL: muestra solo largos y pistas, NUNCA la clave
+    const recibida = req.get("x-api-key") || "";
+    const configurada = process.env.API_KEY;
+    console.warn(
+      `[diag] API key distinta. recibida: ${recibida.length} caracteres. ` +
+      (configurada === undefined
+        ? "configurada: NO EXISTE la variable API_KEY"
+        : `configurada: ${configurada.length} caracteres, ` +
+          `espacios al borde: ${configurada !== configurada.trim()}, ` +
+          `comillas: ${/^["']|["']$/.test(configurada)}`)
+    );
     return res.status(401).json({ error: "API key invalida" });
   }
   next(); // la clave es correcta: sigue a la ruta
