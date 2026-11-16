@@ -1,0 +1,5 @@
+node_modules/
+.env
+ca.pem
+# Guia del curso (no se sube)
+Guia_TEI__Railway___Aiven_.pdf

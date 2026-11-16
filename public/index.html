@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor Sumidero</title>
+  <!-- Chart.js con version fija, para que una actualizacion no rompa la pagina -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Monitor de nivel del sumidero</h1>
+  <p id="estado">Cargando...</p>
+  <canvas id="grafico" height="120"></canvas>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Dispositivo</th><th>Distancia (cm)</th><th>Nivel (cm)</th><th>Bateria (V)</th><th>Fecha</th></tr>
+    </thead>
+    <tbody id="tabla"></tbody>
+  </table>
+
+  <script>
+    // Grafico de linea vacio; se llena en actualizar()
+    const ctx = document.getElementById("grafico");
+    const grafico = new Chart(ctx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Nivel del agua (cm)", data: [], tension: 0.3 }] },
+      options: { scales: { y: { beginAtZero: true } } },
+    });
+
+    // Muestra un numero con decimales, o "-" si viene vacio (ej. sin bateria)
+    function num(v, decimales) {
+      return v === null || v === undefined ? "-" : Number(v).toFixed(decimales);
+    }
+
+    async function actualizar() {
+      try {
+        // Pide las ultimas 30 mediciones al servidor
+        const res = await fetch("/api/mediciones?limite=30");
+        const datos = await res.json();
+
+        // El servidor las manda de la mas nueva a la mas vieja;
+        // para el grafico las damos vuelta (la mas vieja a la izquierda)
+        const orden = [...datos].reverse();
+        grafico.data.labels = orden.map(d => new Date(d.creado_en).toLocaleTimeString());
+        grafico.data.datasets[0].data = orden.map(d => d.nivel_cm);
+        grafico.update();
+
+        // Arma la tabla fila por fila con textContent: si alguien manda
+        // codigo HTML en "dispositivo", se muestra como texto y no se ejecuta
+        const tabla = document.getElementById("tabla");
+        tabla.replaceChildren();
+        for (const d of datos) {
+          const fila = tabla.insertRow();
+          const celdas = [
+            d.id,
+            d.dispositivo,
+            num(d.distancia_cm, 1),
+            num(d.nivel_cm, 1),
+            num(d.bateria_v, 2),
+            new Date(d.creado_en).toLocaleString(),
+          ];
+          for (const texto of celdas) fila.insertCell().textContent = texto;
+        }
+
+        document.getElementById("estado").textContent =
+          `Ultima actualizacion: ${new Date().toLocaleTimeString()} (${datos.length} mediciones)`;
+      } catch (e) {
+        document.getElementById("estado").textContent = "Error al cargar datos";
+      }
+    }
+
+    actualizar();
+    setInterval(actualizar, 5000); // refresca cada 5 segundos
+  </script>
+</body>
+</html>
